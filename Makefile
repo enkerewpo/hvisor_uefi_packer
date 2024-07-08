@@ -58,7 +58,10 @@ ifeq ($(F_QEMU), 1)
 	CFLAGS += -DQEMU
 endif
 
-all: clean $(TARGET)
+all: pre clean $(TARGET)
+
+pre:
+	make -C ../hvisor
 
 hvisor.so: $(OBJS)
 	$(LD) $(LDFLAGS) $^ -o $@ -lefi -lgnuefi
@@ -70,6 +73,7 @@ hvisor.so: $(OBJS)
 	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel -j .rela -j .rel.* \
 			-j .rela.* -j .rel* -j .rela* -j .reloc -O binary $^ $@
 	cp $@ BOOTLOONGARCH64.EFI
+	@echo "ok"
 
 $(BUILD_DIR)/%.o: src/%.c
 	@mkdir -p $(@D)
@@ -88,7 +92,7 @@ clean:
 
 QEMU_CMD = $(QEMU) -bios QEMU_EFI.fd -kernel $(TARGET) -m 4G -smp 1 -nographic -serial mon:stdio
 
-run: clean $(TARGET)
+run: pre clean $(TARGET)
 	$(QEMU_CMD)
 
 run-debug: clean $(TARGET)
