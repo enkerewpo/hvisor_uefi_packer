@@ -181,8 +181,8 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   UINTN hvisor_zone0_vmlinux_size =
       &hvisor_zone0_vmlinux_end - &hvisor_zone0_vmlinux_start;
 
-  const UINTN hvisor_bin_addr = 0x9000000000010000ULL;
-  const UINTN hvisor_dtb_addr = 0x900000000000f000ULL;
+  const UINTN hvisor_bin_addr = 0x9000000100010000ULL;
+  const UINTN hvisor_dtb_addr = 0x900000010000f000ULL;
   const UINTN hvisor_zone0_vmlinux_addr =
       0x9000000000200000ULL; // caution: this is actually a vmlinux.bin, not a
                              // vmlinux - wheatfox

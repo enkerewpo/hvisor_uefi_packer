@@ -62,6 +62,7 @@ all: pre clean $(TARGET)
 
 pre:
 	make -C ../hvisor
+	make -C ../hvisor disa
 
 hvisor.so: $(OBJS)
 	$(LD) $(LDFLAGS) $^ -o $@ -lefi -lgnuefi
@@ -100,3 +101,18 @@ run-debug: clean $(TARGET)
 
 debug:
 	$(CROSS_GDB) -ex "file $(ELF_TARGET)" -ex "target remote localhost:1234" -ex "layout asm"
+
+USB_STICK=HVISOR_LA64
+USER=$(shell whoami)
+DEV_PATH=/media/${USER}/${USB_STICK}
+
+copy: all
+	@echo "Copying to USB stick"
+	rm -rf $(DEV_PATH)/EFI
+	mkdir -p $(DEV_PATH)/EFI/BOOT
+	cp BOOTLOONGARCH64.EFI $(DEV_PATH)/EFI/BOOT/BOOTLOONGARCH64.EFI
+	sync
+# unmount USB stick
+	@echo "Unmounting USB stick"
+	umount $(DEV_PATH)
+	@echo "Done"
