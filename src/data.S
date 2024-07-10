@@ -14,5 +14,5 @@ hvisor_dtb_end:
 .globl hvisor_zone0_vmlinux_start, hvisor_zone0_vmlinux_end
 // this is vmlinux.bin. not the ELF vmlinux or EFI vmlinux.efi !!!
 hvisor_zone0_vmlinux_start:
-.incbin "/home/wheatfox/code/linux-6.9.8-la64/linux-6.9.8/arch/loongarch/boot/vmlinux.bin"
+.incbin "../../linux-6.9.8-la64/linux-6.9.8/arch/loongarch/boot/vmlinux.bin"
 hvisor_zone0_vmlinux_end:
