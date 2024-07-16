@@ -19,6 +19,14 @@ void memcpy2(void *dest, void *src, int n) {
   }
 }
 
+void memset2(void *dest, int val, int n) {
+  char *cdest = (char *)dest;
+
+  for (int i = 0; i < n; i++) {
+    cdest[i] = val;
+  }
+}
+
 void halt() {
   Print(L"[INFO] (halt) loop forever\n");
   while (1)
@@ -186,6 +194,19 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   const UINTN hvisor_zone0_vmlinux_addr =
       0x9000000000200000ULL; // caution: this is actually a vmlinux.bin, not a
                              // vmlinux - wheatfox
+
+  const UINTN memset_st = 0x9000000100000000ULL;
+  const UINTN memset_ed = 0x9000000101000000ULL;
+
+  Print(L"Clearing memory from 0x%lx to 0x%lx\n", memset_st, memset_ed);
+  memset2((void *)memset_st, 0, memset_ed - memset_st);
+  // check memset
+  for (UINTN i = memset_st; i < memset_ed; i++) {
+    if (*(UINT8 *)i != 0) {
+      Print(L"memset failed at 0x%lx\n", i);
+      halt();
+    }
+  }
 
   // print range overview
   Print(L"====================================================================="
