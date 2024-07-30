@@ -116,3 +116,17 @@ copy: all
 	@echo "Unmounting USB stick"
 	umount $(DEV_PATH)
 	@echo "Done"
+
+world:
+	@echo "$(LIGHTGREEN_S)building world$(LIGHTGREEN_E)"
+	@echo "$(LIGHTYELLOW_S)building hvisor kernel module and cmd tool$(LIGHTYELLOW_E)"
+	cd ../hvisor-tool && make tools && make driver
+	@echo "$(LIGHTYELLOW_S)copying hvisor kernel module and cmd tool$(LIGHTYELLOW_E)"
+	cd ../buildroot-loongarch64/board/loongson/ls3a5000/rootfs_ramdisk_overlay/tool && ./copy
+	@echo "$(LIGHTYELLOW_S)building buildroot$(LIGHTYELLOW_E)"
+	cd ../buildroot-loongarch64 && make -j16
+	@echo "$(LIGHTYELLOW_S)building linux kernel$(LIGHTYELLOW_E)"
+	cd ../linux-6.9.8-la64 && ./build kernel
+	@echo "$(LIGHTYELLOW_S)building hvisor.efi$(LIGHTYELLOW_E)"
+	make
+	@echo "$(LIGHTGREEN_S)building world done$(LIGHTGREEN_E)"
