@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# iasl at ../tools/acpica/genereate/unix/bin
+BIN_PATH=../tools/acpica/generate/unix/bin
+IASL=$BIN_PATH/iasl
+ACPIBIN=$BIN_PATH/acpibin
+ACPIDUMP=$BIN_PATH/acpidump
+
+# find all aml files in the current directory and decompile them to asl
+aml_files=$(find . -name "*.aml")
+for aml in $aml_files; do
+    full_path=$(realpath $aml)
+    dir=$(dirname $full_path)
+    base=$(basename $full_path .aml)
+    asl=$dir/$base.asl
+    echo "Decompile $aml to $asl"
+    $IASL -d $aml
+done

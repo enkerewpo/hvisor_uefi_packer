@@ -14,6 +14,8 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "acpi.h"
+
 EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 EFI_SYSTEM_TABLE *g_st;
 
@@ -178,60 +180,33 @@ EFI_STATUS exit_boot_servies(EFI_HANDLE ImageHandle,
   return status;
 }
 
-// Define ACPI RSDP structure (Root System Description Pointer)
-typedef struct {
-  CHAR8 Signature[8]; // "RSD PTR "
-  UINT8 Checksum;
-  CHAR8 OemId[6];
-  UINT8 Revision;     // 0 = ACPI 1.0, 2 = ACPI 2.0+
-  UINT32 RsdtAddress; // RSDT address
-  UINT32 Length;      // Total length (only valid if Revision >= 2)
-  UINT64 XsdtAddress; // XSDT address (only valid if Revision >= 2)
-  UINT8 ExtendedChecksum;
-  UINT8 Reserved[3];
-} __attribute__((packed)) ACPI_RSDP;
+void print_chars(char *c, int n) {
+  for (int j = 0; j < n; j++) {
+    char c1 = c[j];
+    // if not printable or is \n \r, etc. special char, print '?'
+    c1 = (c1 >= 32 && c1 <= 126) || c1 == '\n' || c1 == '\r' ? c1 : '?';
+    Print(L"%c", c1);
+  }
+}
 
-// Define ACPI Table Header
-typedef struct {
-  CHAR8 Signature[4];
-  UINT32 Length;
-  UINT8 Revision;
-  UINT8 Checksum;
-  CHAR8 OemId[6];
-  CHAR8 OemTableId[8];
-  UINT32 OemRevision;
-  UINT32 CreatorId;
-  UINT32 CreatorRevision;
-} __attribute__((packed)) ACPI_TABLE_HEADER;
-
-typedef struct {
-  ACPI_TABLE_HEADER Header;
-  UINT64 TableEntries[];
-} __attribute__((packed)) ACPI_XSDT;
-
-typedef struct {
-  ACPI_TABLE_HEADER Header;
-  UINT32 TableEntries[];
-} __attribute__((packed)) ACPI_RSDT;
-
-#define EFI_ACPI_TABLE_PROTOCOL_GUID                                           \
-  {0xffe06bdd, 0x6107, 0x46a6, {0x7b, 0xb2, 0x5a, 0x9c, 0x7e, 0xc5, 0x27, 0x5c}}
-
-typedef struct _EFI_ACPI_TABLE_PROTOCOL EFI_ACPI_TABLE_PROTOCOL;
-
-EFI_GUID gEfiAcpiTableProtocolGuid = EFI_ACPI_TABLE_PROTOCOL_GUID;
-
-typedef EFI_STATUS(EFIAPI *EFI_ACPI_TABLE_INSTALL_ACPI_TABLE)(
-    IN EFI_ACPI_TABLE_PROTOCOL *This, IN VOID *AcpiTableBuffer,
-    IN UINTN AcpiTableBufferSize, OUT UINTN *TableKey);
-
-typedef EFI_STATUS(EFIAPI *EFI_ACPI_TABLE_UNINSTALL_ACPI_TABLE)(
-    IN EFI_ACPI_TABLE_PROTOCOL *This, IN UINTN TableKey);
-
-typedef struct _EFI_ACPI_TABLE_PROTOCOL {
-  EFI_ACPI_TABLE_INSTALL_ACPI_TABLE InstallAcpiTable;
-  EFI_ACPI_TABLE_UNINSTALL_ACPI_TABLE UninstallAcpiTable;
-} EFI_ACPI_TABLE_PROTOCOL;
+// parse acpi aml binary code
+// it should begin with "DSDT" because the
+// whole DSDT table should be an "AML code"
+void parse_aml(char *aml, int size) {
+  // writing a parser for AML is very complex
+  // we just dump each byte as hex
+  const int mod = 32;
+  for (int i = 0; i < size; i++) {
+    Print(L"%02x", (UINT8)aml[i]);
+    if ((i + 1) % mod == 0) {
+      Print(L"\n");
+    }
+  }
+  // if not aligned to mod, print a newline
+  if (size % mod != 0) {
+    Print(L"\n");
+  }
+}
 
 EFI_STATUS acpi_dump(EFI_SYSTEM_TABLE *SystemTable) {
   EFI_STATUS status;
@@ -294,34 +269,80 @@ EFI_STATUS acpi_dump(EFI_SYSTEM_TABLE *SystemTable) {
     }
   }
 
-  // dump RSDT (32 bit addr entries)
-  if (rsdt != NULL) {
-    Print(L"[INFO] (acpi_dump) RSDT found\n");
-    Print(L"[INFO] (acpi_dump) RSDT address: 0x%lx\n", (UINT64)rsdt);
-    Print(L"[INFO] (acpi_dump) RSDT signature: ");
+  // Find FADT (Fixed ACPI Description Table)
+  // then get DSDT's AML code(ACPI Machine Language)
+
+  // then dump XSDT
+  // FADT's signature is "FACP"
+  ACPI_FADT *fadt = NULL;
+
+  if (xsdt != NULL) {
+    Print(L"[INFO] (acpi_dump) XSDT found\n");
+    Print(L"[INFO] (acpi_dump) XSDT address: 0x%lx\n", (UINT64)xsdt);
+    Print(L"[INFO] (acpi_dump) XSDT signature: ");
     for (int j = 0; j < 4; j++) {
-      Print(L"%c", rsdt->Header.Signature[j]);
+      Print(L"%c", xsdt->Header.Signature[j]);
     }
     Print(L"\n");
-    Print(L"[INFO] (acpi_dump) RSDT length: %d\n", rsdt->Header.Length);
-    Print(L"[INFO] (acpi_dump) RSDT revision: %d\n", rsdt->Header.Revision);
-    Print(L"[INFO] (acpi_dump) RSDT checksum: %d\n", rsdt->Header.Checksum);
-    Print(L"[INFO] (acpi_dump) RSDT OEM ID: ");
+    Print(L"[INFO] (acpi_dump) XSDT length: %d\n", xsdt->Header.Length);
+    Print(L"[INFO] (acpi_dump) XSDT revision: %d\n", xsdt->Header.Revision);
+    Print(L"[INFO] (acpi_dump) XSDT checksum: %d\n", xsdt->Header.Checksum);
+    Print(L"[INFO] (acpi_dump) XSDT OEM ID: ");
     for (int j = 0; j < 6; j++) {
-      Print(L"%c", rsdt->Header.OemId[j]);
+      Print(L"%c", xsdt->Header.OemId[j]);
     }
     Print(L"\n");
-    Print(L"[INFO] (acpi_dump) RSDT OEM Table ID: ");
+    Print(L"[INFO] (acpi_dump) XSDT OEM Table ID: ");
     for (int j = 0; j < 8; j++) {
-      Print(L"%c", rsdt->Header.OemTableId[j]);
+      Print(L"%c", xsdt->Header.OemTableId[j]);
     }
     Print(L"\n");
-    Print(L"[INFO] (acpi_dump) RSDT OEM Revision: %d\n",
-          rsdt->Header.OemRevision);
-    Print(L"[INFO] (acpi_dump) RSDT Creator ID: %d\n", rsdt->Header.CreatorId);
-    Print(L"[INFO] (acpi_dump) RSDT Creator Revision: %d\n",
-          rsdt->Header.CreatorRevision);
+    Print(L"[INFO] (acpi_dump) XSDT OEM Revision: %d\n",
+          xsdt->Header.OemRevision);
+    Print(L"[INFO] (acpi_dump) XSDT Creator ID: %d\n", xsdt->Header.CreatorId);
+    Print(L"[INFO] (acpi_dump) XSDT Creator Revision: %d\n",
+          xsdt->Header.CreatorRevision);
+    // dump XSDT entries
+    for (int i = 0; i < (xsdt->Header.Length - sizeof(ACPI_TABLE_HEADER)) / 8;
+         i++) {
+      UINT64 *entry = (UINT64 *)xsdt->TableEntries[i];
+      Print(L"[INFO] (acpi_dump) XSDT entry %d: 0x%lx\n", i, (UINT64)entry);
+      // dump first 16 bytes of ACPI table as
+      Print(L"[INFO] (acpi_dump) XSDT entry %d signature: ", i);
+      print_chars((char *)entry, 4);
+      Print(L"\n");
+      if (CompareMem(entry, "FACP", 4) == 0) {
+        fadt = (ACPI_FADT *)entry;
+        Print(L"[INFO] (acpi_dump) FADT found\n");
+        Print(L"[INFO] (acpi_dump) FADT address: 0x%lx\n", (UINT64)fadt);
+      }
+    }
   }
+
+  ACPI_DSDT *dsdt = NULL;
+  // dump FADT's DSDT addr
+  if (fadt != NULL) {
+    Print(L"[INFO] (acpi_dump) DSDT address: 0x%lx\n", (UINT64)fadt->Dsdt);
+    dsdt = (ACPI_DSDT *)fadt->Dsdt;
+  }
+
+  // dump DSDT basic info and AML code size
+  if (dsdt != NULL) {
+    Print(L"[INFO] (acpi_dump) DSDT signature: ");
+    for (int j = 0; j < 4; j++) {
+      Print(L"%c", dsdt->Header.Signature[j]);
+    }
+    Print(L"\n");
+    Print(L"[INFO] (acpi_dump) DSDT length: %d\n", dsdt->Header.Length);
+    Print(L"[INFO] (acpi_dump) DSDT revision: %d\n", dsdt->Header.Revision);
+    Print(L"[INFO] (acpi_dump) DSDT checksum: %d\n", dsdt->Header.Checksum);
+    // code size
+    UINT32 code_size = dsdt->Header.Length - sizeof(ACPI_TABLE_HEADER);
+    Print(L"[INFO] (acpi_dump) DSDT code size: %d\n", code_size);
+  }
+  parse_aml((char *)dsdt,
+            dsdt->Header.Length); // dump DSDT's AML code(ACPI Machine Language)
+
   return EFI_SUCCESS;
 }
 

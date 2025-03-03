@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+
+# write a python script to convert a text file to ACPI binary file
+# we just read 00120E040CFFFF1E000A034C30... and write each byte to the binary file
+
+import sys
+import os
+
+def trans(txt, out):
+    with open(txt, "r") as f:
+        txt = f.read()
+        # remove all white spaces and new lines
+        txt = txt.replace(" ", "").replace("\n", "")
+        # convert to binary
+        bin = bytes.fromhex(txt)
+        with open(out, "wb") as out:
+            out.write(bin)
+            print(f"Write {len(bin)} bytes to file {out.name}")
+    
+if __name__ == "__main__":
+    # find all txt files in the current directory
+    txts = [f for f in os.listdir() if f.endswith(".txt")]
+    for txt in txts:
+        print(f"Converting {txt} to {txt.replace('.txt', '.aml')}")
+        out = txt.replace(".txt", ".aml")
+        trans(txt, out)
